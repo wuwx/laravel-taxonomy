@@ -1,5 +1,7 @@
 # Laravel Taxonomy
 
+[![tests](https://github.com/wuwx/laravel-taxonomy/actions/workflows/tests.yml/badge.svg)](https://github.com/wuwx/laravel-taxonomy/actions/workflows/tests.yml)
+
 A Drupal-inspired taxonomy package for Laravel applications. It provides:
 
 - vocabularies (`Taxonomy`)
