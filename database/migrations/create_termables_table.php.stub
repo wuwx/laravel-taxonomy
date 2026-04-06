@@ -7,19 +7,19 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
-        Schema::create(config('laravel-taxonomy.table_names.morph_pivot', 'taxonomables'), function (Blueprint $table): void {
+        Schema::create(config('laravel-taxonomy.table_names.morph_pivot', 'termables'), function (Blueprint $table): void {
             $table->foreignId('term_id')
                 ->constrained(config('laravel-taxonomy.table_names.terms', 'taxonomy_terms'))
                 ->cascadeOnDelete();
             $table->morphs('model');
             $table->timestamps();
 
-            $table->primary(['term_id', 'model_type', 'model_id'], 'taxonomables_primary');
+            $table->primary(['term_id', 'model_type', 'model_id'], 'termables_primary');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists(config('laravel-taxonomy.table_names.morph_pivot', 'taxonomables'));
+        Schema::dropIfExists(config('laravel-taxonomy.table_names.morph_pivot', 'termables'));
     }
 };

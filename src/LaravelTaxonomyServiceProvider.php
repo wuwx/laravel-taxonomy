@@ -16,7 +16,7 @@ class LaravelTaxonomyServiceProvider extends PackageServiceProvider
             ->hasMigrations([
                 'create_taxonomies_table',
                 'create_taxonomy_terms_table',
-                'create_taxonomables_table',
+                'create_termables_table',
             ])
             ->hasInstallCommand(function (InstallCommand $command): void {
                 $command

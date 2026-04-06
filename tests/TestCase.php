@@ -21,7 +21,7 @@ abstract class TestCase extends Orchestra
     {
         $this->runPackageMigration('create_taxonomies_table');
         $this->runPackageMigration('create_taxonomy_terms_table');
-        $this->runPackageMigration('create_taxonomables_table');
+        $this->runPackageMigration('create_termables_table');
 
         Schema::create('posts', function (Blueprint $table): void {
             $table->id();

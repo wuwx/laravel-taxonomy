@@ -9,7 +9,7 @@ return [
     'table_names' => [
         'taxonomies' => 'taxonomies',
         'terms' => 'taxonomy_terms',
-        'morph_pivot' => 'taxonomables',
+        'morph_pivot' => 'termables',
     ],
 
     'models' => [

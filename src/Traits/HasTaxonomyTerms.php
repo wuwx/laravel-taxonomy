@@ -83,7 +83,7 @@ trait HasTaxonomyTerms
 
     protected function pivotTable(): string
     {
-        return config('laravel-taxonomy.table_names.morph_pivot', 'taxonomables');
+        return config('laravel-taxonomy.table_names.morph_pivot', 'termables');
     }
 
     protected function resolveTaxonomy(string|Taxonomy $taxonomy): Taxonomy
