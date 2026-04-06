@@ -3,10 +3,10 @@
 namespace Wuwx\LaravelTaxonomy\Tests\Feature;
 
 use InvalidArgumentException;
+use Workbench\App\Post;
 use Wuwx\LaravelTaxonomy\Models\Taxonomy;
 use Wuwx\LaravelTaxonomy\Models\Term;
 use Wuwx\LaravelTaxonomy\Tests\TestCase;
-use Workbench\App\Post;
 
 class TaxonomyTest extends TestCase
 {

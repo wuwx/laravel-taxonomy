@@ -33,7 +33,7 @@ abstract class TestCase extends Orchestra
     protected function runPackageMigration(string $migration): void
     {
         /** @var Migration $instance */
-        $instance = require dirname(__DIR__) . "/database/migrations/{$migration}.php.stub";
+        $instance = require dirname(__DIR__)."/database/migrations/{$migration}.php.stub";
 
         $instance->up();
     }
