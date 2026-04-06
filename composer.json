@@ -1,0 +1,49 @@
+{
+    "name": "wuwx/laravel-taxonomy",
+    "description": "A Drupal-inspired taxonomy package for Laravel models.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "taxonomy",
+        "drupal",
+        "categories",
+        "tags"
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/database": "^11.0 || ^12.0",
+        "illuminate/support": "^11.0 || ^12.0",
+        "spatie/laravel-package-tools": "^1.93"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.24",
+        "orchestra/testbench": "^9.0 || ^10.0",
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Wuwx\\LaravelTaxonomy\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Wuwx\\LaravelTaxonomy\\Tests\\": "tests/",
+            "Workbench\\App\\": "tests/Fixtures/app/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test-coverage": "php -dpcov.enabled=1 -dpcov.directory=src vendor/bin/phpunit --coverage-text --coverage-html coverage",
+        "format": "pint"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Wuwx\\LaravelTaxonomy\\LaravelTaxonomyServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

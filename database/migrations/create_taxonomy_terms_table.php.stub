@@ -1,0 +1,35 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class () extends Migration {
+    public function up(): void
+    {
+        Schema::create(config('laravel-taxonomy.table_names.terms', 'taxonomy_terms'), function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('taxonomy_id')
+                ->constrained(config('laravel-taxonomy.table_names.taxonomies', 'taxonomies'))
+                ->cascadeOnDelete();
+            $table->foreignId('parent_id')
+                ->nullable()
+                ->constrained(config('laravel-taxonomy.table_names.terms', 'taxonomy_terms'))
+                ->nullOnDelete();
+            $table->string('name');
+            $table->string('slug');
+            $table->text('description')->nullable();
+            $table->integer('weight')->default(0);
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+
+            $table->unique(['taxonomy_id', 'slug']);
+            $table->index(['taxonomy_id', 'parent_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists(config('laravel-taxonomy.table_names.terms', 'taxonomy_terms'));
+    }
+};
