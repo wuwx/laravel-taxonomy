@@ -2,11 +2,11 @@
 
 namespace Wuwx\LaravelTaxonomy\Traits;
 
-use Wuwx\LaravelTaxonomy\Models\Taxonomy;
-use Wuwx\LaravelTaxonomy\Models\Term;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use InvalidArgumentException;
+use Wuwx\LaravelTaxonomy\Models\Taxonomy;
+use Wuwx\LaravelTaxonomy\Models\Term;
 
 trait HasTaxonomyTerms
 {

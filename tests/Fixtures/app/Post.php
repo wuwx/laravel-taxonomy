@@ -2,8 +2,8 @@
 
 namespace Workbench\App;
 
-use Wuwx\LaravelTaxonomy\Traits\HasTaxonomyTerms;
 use Illuminate\Database\Eloquent\Model;
+use Wuwx\LaravelTaxonomy\Traits\HasTaxonomyTerms;
 
 class Post extends Model
 {
