@@ -47,10 +47,7 @@ trait HasTaxonomyTerms
 
     public function syncTerms(iterable $terms, string|Taxonomy|null $taxonomy = null, bool $detaching = true): static
     {
-        $ids = array_map(
-            fn (Term|int|string $term): int => $this->resolveTermId($term, $taxonomy),
-            is_array($terms) ? $terms : iterator_to_array($terms)
-        );
+        $ids = $this->resolveTermIds($terms, $taxonomy);
 
         $this->terms()->sync($ids, $detaching);
 
@@ -64,11 +61,126 @@ trait HasTaxonomyTerms
         return $this;
     }
 
+    public function detachTerms(iterable $terms, string|Taxonomy|null $taxonomy = null): static
+    {
+        $ids = $this->resolveTermIds($terms, $taxonomy);
+
+        if ($ids !== []) {
+            $this->terms()->detach($ids);
+        }
+
+        return $this;
+    }
+
+    public function detachAllTerms(): static
+    {
+        $this->terms()->detach();
+
+        return $this;
+    }
+
+    public function hasTerm(Term|int|string $term, string|Taxonomy|null $taxonomy = null): bool
+    {
+        $termId = $this->tryResolveTermId($term, $taxonomy);
+
+        if ($termId === null) {
+            return false;
+        }
+
+        return $this->terms()
+            ->whereKey($termId)
+            ->exists();
+    }
+
+    public function hasAnyTerms(iterable $terms, string|Taxonomy|null $taxonomy = null): bool
+    {
+        $ids = $this->resolveResolvableTermIds($terms, $taxonomy);
+
+        if ($ids === []) {
+            return false;
+        }
+
+        return $this->terms()
+            ->whereIn($this->terms()->getRelated()->qualifyColumn($this->terms()->getRelatedKeyName()), $ids)
+            ->exists();
+    }
+
+    public function hasAllTerms(iterable $terms, string|Taxonomy|null $taxonomy = null): bool
+    {
+        $ids = $this->resolveResolvableTermIds($terms, $taxonomy);
+
+        if ($ids === []) {
+            return false;
+        }
+
+        foreach ($ids as $id) {
+            if (! $this->terms()->whereKey($id)->exists()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function scopeWhereHasTerm(Builder $query, Term|int|string $term, string|Taxonomy|null $taxonomy = null): Builder
     {
         $termId = $this->resolveTermId($term, $taxonomy);
 
         return $query->whereHas('terms', fn (Builder $relationQuery): Builder => $relationQuery->whereKey($termId));
+    }
+
+    public function scopeWithAnyTerms(Builder $query, iterable $terms, string|Taxonomy|null $taxonomy = null): Builder
+    {
+        $ids = $this->resolveTermIds($terms, $taxonomy);
+
+        if ($ids === []) {
+            return $query;
+        }
+
+        return $query->whereHas(
+            'terms',
+            fn (Builder $relationQuery): Builder => $relationQuery->whereIn(
+                $relationQuery->getModel()->qualifyColumn($relationQuery->getModel()->getKeyName()),
+                $ids
+            )
+        );
+    }
+
+    public function scopeWithAllTerms(Builder $query, iterable $terms, string|Taxonomy|null $taxonomy = null): Builder
+    {
+        $ids = $this->resolveTermIds($terms, $taxonomy);
+
+        if ($ids === []) {
+            return $query;
+        }
+
+        foreach ($ids as $id) {
+            $query->whereHas('terms', fn (Builder $relationQuery): Builder => $relationQuery->whereKey($id));
+        }
+
+        return $query;
+    }
+
+    public function scopeWithoutTerms(Builder $query, iterable $terms, string|Taxonomy|null $taxonomy = null): Builder
+    {
+        $ids = $this->resolveTermIds($terms, $taxonomy);
+
+        if ($ids === []) {
+            return $query;
+        }
+
+        return $query->whereDoesntHave(
+            'terms',
+            fn (Builder $relationQuery): Builder => $relationQuery->whereIn(
+                $relationQuery->getModel()->qualifyColumn($relationQuery->getModel()->getKeyName()),
+                $ids
+            )
+        );
+    }
+
+    public function scopeWithoutAnyTerms(Builder $query): Builder
+    {
+        return $query->doesntHave('terms');
     }
 
     protected function termModel(): string
@@ -130,5 +242,40 @@ trait HasTaxonomyTerms
         }
 
         return (int) $resolved->getKey();
+    }
+
+    protected function tryResolveTermId(Term|int|string $term, string|Taxonomy|null $taxonomy = null): ?int
+    {
+        try {
+            return $this->resolveTermId($term, $taxonomy);
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    protected function resolveTermIds(iterable $terms, string|Taxonomy|null $taxonomy = null): array
+    {
+        $resolvedTerms = is_array($terms) ? $terms : iterator_to_array($terms, false);
+
+        return array_values(array_unique(array_map(
+            fn (Term|int|string $term): int => $this->resolveTermId($term, $taxonomy),
+            $resolvedTerms
+        )));
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    protected function resolveResolvableTermIds(iterable $terms, string|Taxonomy|null $taxonomy = null): array
+    {
+        $resolvedTerms = is_array($terms) ? $terms : iterator_to_array($terms, false);
+
+        return array_values(array_unique(array_filter(array_map(
+            fn (Term|int|string $term): ?int => $this->tryResolveTermId($term, $taxonomy),
+            $resolvedTerms
+        ), fn (?int $id): bool => $id !== null)));
     }
 }

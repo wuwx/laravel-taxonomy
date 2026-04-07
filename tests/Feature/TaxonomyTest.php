@@ -101,6 +101,102 @@ class TaxonomyTest extends TestCase
         $this->assertSame(['symfony'], $post->terms()->pluck('slug')->all());
     }
 
+    public function test_it_supports_term_presence_checks(): void
+    {
+        $topics = Taxonomy::query()->create([
+            'name' => 'Topics',
+            'slug' => 'topics',
+        ]);
+        $skills = Taxonomy::query()->create([
+            'name' => 'Skills',
+            'slug' => 'skills',
+        ]);
+
+        $php = $topics->createTerm(['name' => 'PHP']);
+        $laravel = $topics->createTerm(['name' => 'Laravel']);
+        $go = $topics->createTerm(['name' => 'Go']);
+        $docker = $skills->createTerm(['name' => 'Docker']);
+
+        $post = Post::query()->create(['title' => 'Typed properties']);
+        $post->attachTerms([$php, $laravel], taxonomy: $topics);
+        $post->attachTerm('docker', taxonomy: 'skills');
+
+        $this->assertTrue($post->hasTerm($php));
+        $this->assertTrue($post->hasTerm('laravel', taxonomy: 'topics'));
+        $this->assertFalse($post->hasTerm($go));
+        $this->assertTrue($post->hasAnyTerms(['php', 'go'], taxonomy: 'topics'));
+        $this->assertFalse($post->hasAnyTerms(['go', 'rust'], taxonomy: 'topics'));
+        $this->assertTrue($post->hasAllTerms(['php', 'laravel'], taxonomy: 'topics'));
+        $this->assertFalse($post->hasAllTerms(['php', 'go'], taxonomy: 'topics'));
+        $this->assertTrue($post->hasAnyTerms([$docker]));
+    }
+
+    public function test_it_supports_multi_term_scopes(): void
+    {
+        $topics = Taxonomy::query()->create([
+            'name' => 'Topics',
+            'slug' => 'topics',
+        ]);
+        $statuses = Taxonomy::query()->create([
+            'name' => 'Statuses',
+            'slug' => 'statuses',
+        ]);
+
+        $php = $topics->createTerm(['name' => 'PHP']);
+        $laravel = $topics->createTerm(['name' => 'Laravel']);
+        $symfony = $topics->createTerm(['name' => 'Symfony']);
+        $deprecated = $statuses->createTerm(['name' => 'Deprecated']);
+
+        $first = Post::query()->create(['title' => 'Laravel tips']);
+        $first->attachTerms([$php, $laravel], taxonomy: $topics);
+
+        $second = Post::query()->create(['title' => 'Symfony tips']);
+        $second->attachTerms([$php, $symfony], taxonomy: $topics);
+
+        $third = Post::query()->create(['title' => 'Legacy note']);
+        $third->attachTerm($deprecated);
+
+        $fourth = Post::query()->create(['title' => 'Untitled']);
+
+        $this->assertSame(
+            [$first->id, $second->id],
+            Post::query()->withAnyTerms(['php', 'laravel'], taxonomy: 'topics')->orderBy('id')->pluck('id')->all()
+        );
+        $this->assertSame(
+            [$first->id],
+            Post::query()->withAllTerms(['php', 'laravel'], taxonomy: $topics)->pluck('id')->all()
+        );
+        $this->assertSame(
+            [$first->id, $second->id, $fourth->id],
+            Post::query()->withoutTerms([$deprecated])->orderBy('id')->pluck('id')->all()
+        );
+        $this->assertSame(
+            [$fourth->id],
+            Post::query()->withoutAnyTerms()->pluck('id')->all()
+        );
+    }
+
+    public function test_it_can_detach_multiple_or_all_terms(): void
+    {
+        $taxonomy = Taxonomy::query()->create([
+            'name' => 'Topics',
+            'slug' => 'topics',
+        ]);
+
+        $php = $taxonomy->createTerm(['name' => 'PHP']);
+        $laravel = $taxonomy->createTerm(['name' => 'Laravel']);
+        $symfony = $taxonomy->createTerm(['name' => 'Symfony']);
+
+        $post = Post::query()->create(['title' => 'Typed properties']);
+        $post->attachTerms([$php, $laravel, $symfony], taxonomy: $taxonomy);
+
+        $post->detachTerms(['php', 'laravel'], taxonomy: $taxonomy);
+        $this->assertSame(['symfony'], $post->terms()->pluck('slug')->all());
+
+        $post->detachAllTerms();
+        $this->assertSame([], $post->terms()->pluck('slug')->all());
+    }
+
     public function test_it_rejects_child_terms_for_non_hierarchical_taxonomy(): void
     {
         $taxonomy = Taxonomy::query()->create([
