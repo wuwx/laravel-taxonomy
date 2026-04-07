@@ -45,7 +45,7 @@ class TaxonomyTest extends TestCase
         $this->assertTrue($laravel->parent->is($php));
         $this->assertSame($php->id, $taxonomy->findTermBySlug('php')?->id);
         $this->assertSame(['symfony', 'php'], $taxonomy->rootTerms()->pluck('slug')->all());
-        $this->assertSame(['laravel', 'eloquent'], $php->descendants()->pluck('slug')->all());
+        $this->assertSame(['laravel', 'eloquent'], $php->descendants()->defaultOrder()->pluck('slug')->all());
         $this->assertSame(['eloquent', 'laravel', 'php', 'symfony'], Term::query()->forTaxonomy('topics')->orderBy('slug')->pluck('slug')->all());
         $this->assertSame(['eloquent', 'laravel', 'php', 'symfony'], Term::query()->forTaxonomy($taxonomy)->orderBy('slug')->pluck('slug')->all());
     }
@@ -64,11 +64,11 @@ class TaxonomyTest extends TestCase
         $symfony = $taxonomy->createTerm(['name' => 'Symfony'], $php);
         $react = $taxonomy->createTerm(['name' => 'React'], $frontend);
 
-        $this->assertSame(['php', 'backend'], $laravel->ancestors()->pluck('slug')->all());
-        $this->assertSame(['symfony'], $laravel->siblings()->pluck('slug')->all());
-        $this->assertSame(0, $backend->depth());
-        $this->assertSame(1, $php->depth());
-        $this->assertSame(2, $laravel->depth());
+        $this->assertSame(['backend', 'php'], $laravel->ancestors()->defaultOrder()->pluck('slug')->all());
+        $this->assertSame(['symfony'], $laravel->siblings()->defaultOrder()->pluck('slug')->all());
+        $this->assertSame(0, $backend->refresh()->ancestors()->count());
+        $this->assertSame(1, $php->refresh()->ancestors()->count());
+        $this->assertSame(2, $laravel->refresh()->ancestors()->count());
         $this->assertTrue($backend->isRoot());
         $this->assertFalse($php->isRoot());
         $this->assertFalse($php->isLeaf());

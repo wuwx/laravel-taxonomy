@@ -35,12 +35,7 @@ trait HasTaxonomyTerms
 
     public function attachTerms(iterable $terms, string|Taxonomy|null $taxonomy = null): static
     {
-        $ids = array_map(
-            fn (Term|int|string $term): int => $this->resolveTermId($term, $taxonomy),
-            is_array($terms) ? $terms : iterator_to_array($terms)
-        );
-
-        $this->terms()->syncWithoutDetaching($ids);
+        $this->terms()->syncWithoutDetaching($this->resolveTermIds($terms, $taxonomy));
 
         return $this;
     }
@@ -113,13 +108,9 @@ trait HasTaxonomyTerms
             return false;
         }
 
-        foreach ($ids as $id) {
-            if (! $this->terms()->whereKey($id)->exists()) {
-                return false;
-            }
-        }
-
-        return true;
+        return $this->terms()
+            ->whereIn($this->terms()->getRelated()->qualifyColumn($this->terms()->getRelatedKeyName()), $ids)
+            ->count() === count($ids);
     }
 
     public function scopeWhereHasTerm(Builder $query, Term|int|string $term, string|Taxonomy|null $taxonomy = null): Builder

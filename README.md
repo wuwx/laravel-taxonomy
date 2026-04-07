@@ -172,9 +172,9 @@ $laravel->isLeaf();
 $backend->isAncestorOf($laravel);
 $laravel->isDescendantOf($backend);
 
-$backend->depth();  // 0
-$php->depth();      // 1
-$laravel->depth();  // 2
+$backend->ancestors()->count();  // 0
+$php->ancestors()->count();      // 1
+$laravel->ancestors()->count();  // 2
 ```
 
 Build structures for menus, navigation, or selects:
