@@ -5,6 +5,9 @@ namespace Wuwx\LaravelTaxonomy\Traits;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use InvalidArgumentException;
+use Wuwx\LaravelTaxonomy\Events\TermAttached;
+use Wuwx\LaravelTaxonomy\Events\TermDetached;
+use Wuwx\LaravelTaxonomy\Events\TermsSynced;
 use Wuwx\LaravelTaxonomy\Models\Taxonomy;
 use Wuwx\LaravelTaxonomy\Models\Term;
 
@@ -28,14 +31,22 @@ trait HasTaxonomyTerms
 
     public function attachTerm(Term|int|string $term, string|Taxonomy|null $taxonomy = null): static
     {
-        $this->terms()->syncWithoutDetaching([$this->resolveTermId($term, $taxonomy)]);
+        $ids = [$this->resolveTermId($term, $taxonomy)];
+
+        $this->terms()->syncWithoutDetaching($ids);
+
+        TermAttached::dispatch($this, $ids);
 
         return $this;
     }
 
     public function attachTerms(iterable $terms, string|Taxonomy|null $taxonomy = null): static
     {
-        $this->terms()->syncWithoutDetaching($this->resolveTermIds($terms, $taxonomy));
+        $ids = $this->resolveTermIds($terms, $taxonomy);
+
+        $this->terms()->syncWithoutDetaching($ids);
+
+        TermAttached::dispatch($this, $ids);
 
         return $this;
     }
@@ -44,14 +55,20 @@ trait HasTaxonomyTerms
     {
         $ids = $this->resolveTermIds($terms, $taxonomy);
 
-        $this->terms()->sync($ids, $detaching);
+        $changes = $this->terms()->sync($ids, $detaching);
+
+        TermsSynced::dispatch($this, $ids, $changes);
 
         return $this;
     }
 
     public function detachTerm(Term|int|string $term, string|Taxonomy|null $taxonomy = null): static
     {
-        $this->terms()->detach($this->resolveTermId($term, $taxonomy));
+        $ids = [$this->resolveTermId($term, $taxonomy)];
+
+        $this->terms()->detach($ids);
+
+        TermDetached::dispatch($this, $ids);
 
         return $this;
     }
@@ -62,6 +79,8 @@ trait HasTaxonomyTerms
 
         if ($ids !== []) {
             $this->terms()->detach($ids);
+
+            TermDetached::dispatch($this, $ids);
         }
 
         return $this;
@@ -69,7 +88,11 @@ trait HasTaxonomyTerms
 
     public function detachAllTerms(): static
     {
+        $ids = $this->terms()->pluck($this->terms()->getRelated()->getQualifiedKeyName())->all();
+
         $this->terms()->detach();
+
+        TermDetached::dispatch($this, $ids);
 
         return $this;
     }

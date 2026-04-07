@@ -2,8 +2,12 @@
 
 namespace Wuwx\LaravelTaxonomy\Tests\Feature;
 
+use Illuminate\Support\Facades\Event;
 use InvalidArgumentException;
 use Workbench\App\Post;
+use Wuwx\LaravelTaxonomy\Events\TermAttached;
+use Wuwx\LaravelTaxonomy\Events\TermDetached;
+use Wuwx\LaravelTaxonomy\Events\TermsSynced;
 use Wuwx\LaravelTaxonomy\Models\Taxonomy;
 use Wuwx\LaravelTaxonomy\Models\Term;
 use Wuwx\LaravelTaxonomy\Tests\TestCase;
@@ -369,6 +373,66 @@ class TaxonomyTest extends TestCase
         app()->setLocale('zh');
         $taxonomy = Taxonomy::query()->where('name->zh', '主题')->first();
         $this->assertNotNull($taxonomy);
+    }
+
+    public function test_it_dispatches_term_attached_event(): void
+    {
+        Event::fake([TermAttached::class]);
+
+        $taxonomy = Taxonomy::query()->create(['name' => 'Topics']);
+        $php = $taxonomy->createTerm(['name' => 'PHP']);
+        $laravel = $taxonomy->createTerm(['name' => 'Laravel']);
+        $post = Post::query()->create(['title' => 'Test']);
+
+        $post->attachTerm($php);
+
+        Event::assertDispatched(TermAttached::class, function (TermAttached $event) use ($post, $php) {
+            return $event->model->is($post) && $event->termIds === [(int) $php->getKey()];
+        });
+
+        $post->attachTerms([$php, $laravel]);
+
+        Event::assertDispatched(TermAttached::class, 2);
+    }
+
+    public function test_it_dispatches_term_detached_event(): void
+    {
+        Event::fake([TermDetached::class]);
+
+        $taxonomy = Taxonomy::query()->create(['name' => 'Topics']);
+        $php = $taxonomy->createTerm(['name' => 'PHP']);
+        $laravel = $taxonomy->createTerm(['name' => 'Laravel']);
+        $post = Post::query()->create(['title' => 'Test']);
+        $post->terms()->syncWithoutDetaching([(int) $php->getKey(), (int) $laravel->getKey()]);
+
+        $post->detachTerm($php);
+
+        Event::assertDispatched(TermDetached::class, function (TermDetached $event) use ($post, $php) {
+            return $event->model->is($post) && $event->termIds === [(int) $php->getKey()];
+        });
+
+        $post->terms()->syncWithoutDetaching([(int) $php->getKey(), (int) $laravel->getKey()]);
+        $post->detachAllTerms();
+
+        Event::assertDispatched(TermDetached::class, 2);
+    }
+
+    public function test_it_dispatches_terms_synced_event(): void
+    {
+        Event::fake([TermsSynced::class]);
+
+        $taxonomy = Taxonomy::query()->create(['name' => 'Topics']);
+        $php = $taxonomy->createTerm(['name' => 'PHP']);
+        $laravel = $taxonomy->createTerm(['name' => 'Laravel']);
+        $post = Post::query()->create(['title' => 'Test']);
+
+        $post->syncTerms([$php, $laravel]);
+
+        Event::assertDispatched(TermsSynced::class, function (TermsSynced $event) use ($post) {
+            return $event->model->is($post)
+                && count($event->termIds) === 2
+                && array_key_exists('attached', $event->changes);
+        });
     }
 
     public function test_it_rejects_unknown_taxonomies_in_term_queries(): void
