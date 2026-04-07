@@ -6,11 +6,13 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
-use Illuminate\Support\Str;
 use Kalnoy\Nestedset\NodeTrait;
+use Spatie\Sluggable\HasSlug;
+use Spatie\Sluggable\SlugOptions;
 
 class Term extends Model
 {
+    use HasSlug;
     use NodeTrait;
 
     protected $fillable = [
@@ -56,11 +58,12 @@ class Term extends Model
         return $this->morphedByMany($modelClass, 'model', $this->pivotTable(), 'term_id', 'model_id');
     }
 
-    protected static function booted(): void
+    public function getSlugOptions(): SlugOptions
     {
-        static::saving(function (self $term): void {
-            $term->slug = $term->slug ?: Str::slug($term->name);
-        });
+        return SlugOptions::create()
+            ->generateSlugsFrom('name')
+            ->saveSlugsTo('slug')
+            ->extraScope(fn (Builder $builder) => $builder->where('taxonomy_id', $this->taxonomy_id));
     }
 
     protected function taxonomyModel(): string

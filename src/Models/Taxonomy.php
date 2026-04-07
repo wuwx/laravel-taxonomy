@@ -6,10 +6,13 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Str;
+use Spatie\Sluggable\HasSlug;
+use Spatie\Sluggable\SlugOptions;
 
 class Taxonomy extends Model
 {
+    use HasSlug;
+
     protected $fillable = [
         'name',
         'slug',
@@ -45,8 +48,6 @@ class Taxonomy extends Model
         if ($parent !== null && (int) $parent->taxonomy_id !== (int) $this->getKey()) {
             throw new \InvalidArgumentException('The parent term does not belong to this taxonomy.');
         }
-
-        $attributes['slug'] ??= Str::slug($attributes['name'] ?? '');
 
         /** @var Term $term */
         $term = $this->terms()->make($attributes);
@@ -122,11 +123,11 @@ class Taxonomy extends Model
         return $terms;
     }
 
-    protected static function booted(): void
+    public function getSlugOptions(): SlugOptions
     {
-        static::saving(function (self $taxonomy): void {
-            $taxonomy->slug = $taxonomy->slug ?: Str::slug($taxonomy->name);
-        });
+        return SlugOptions::create()
+            ->generateSlugsFrom('name')
+            ->saveSlugsTo('slug');
     }
 
     protected function termModel(): string
