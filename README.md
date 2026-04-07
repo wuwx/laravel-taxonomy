@@ -4,10 +4,15 @@
 
 A Drupal-inspired taxonomy package for Laravel applications. It provides:
 
-- vocabularies via `Taxonomy`
-- hierarchical terms via `Term`
-- polymorphic term assignment for any Eloquent model
-- tree operations powered by `kalnoy/nestedset`
+- **Vocabularies** via `Taxonomy` — group terms into categories, tags, locations, etc.
+- **Hierarchical terms** via `Term` — powered by `kalnoy/nestedset` for efficient tree queries
+- **Polymorphic assignment** — attach terms to any Eloquent model
+- **Rich query scopes** — `withAnyTerms`, `withAllTerms`, `withoutTerms`, `byTaxonomies`
+- **Translations** — `name` and `description` are translatable via `spatie/laravel-translatable`
+- **Slug auto-generation** — powered by `spatie/laravel-sluggable` with scoped uniqueness
+- **Events** — `TermAttached`, `TermDetached`, `TermsSynced` dispatched automatically
+- **Pivot data** — `order` and `metadata` on the pivot table
+- **Artisan commands** — `taxonomy:list`, `taxonomy:tree`, `taxonomy:create-term`
 
 ## Installation
 
@@ -43,45 +48,28 @@ Create a vocabulary and some terms:
 ```php
 use Wuwx\LaravelTaxonomy\Models\Taxonomy;
 
-$topics = Taxonomy::query()->create([
-    'name' => 'Topics',
-    'slug' => 'topics',
-]);
+$topics = Taxonomy::query()->create(['name' => 'Topics']);
 
 $php = $topics->createTerm(['name' => 'PHP']);
 $laravel = $topics->createTerm(['name' => 'Laravel'], parent: $php);
 ```
 
-Assign terms to a model:
+Assign and query:
 
 ```php
 $post->attachTerm($php);
-$post->attachTerm('laravel', taxonomy: 'topics');
 $post->attachTerms(['php', 'laravel'], taxonomy: 'topics');
-```
 
-Query only terms that belong to one vocabulary:
-
-```php
-$post->termsIn('topics')->orderBy('slug')->get();
-```
-
-Filter models by term:
-
-```php
-Post::query()->whereHasTerm('laravel', taxonomy: 'topics')->get();
+Post::withAnyTerms(['php', 'laravel'], taxonomy: 'topics')->get();
 ```
 
 ## Taxonomies And Terms
 
-Create a taxonomy:
+Create a taxonomy (slug is auto-generated if omitted):
 
 ```php
-use Wuwx\LaravelTaxonomy\Models\Taxonomy;
-
 $topics = Taxonomy::query()->create([
     'name' => 'Topics',
-    'slug' => 'topics',
     'description' => 'Development topics',
     'is_hierarchical' => true,
 ]);
@@ -102,11 +90,11 @@ $topics->findTermBySlug('php');
 $topics->rootTerms();
 ```
 
+Slugs are auto-generated and unique — within the same taxonomy, duplicate names produce `php`, `php-1`, `php-2`, etc. Taxonomy slugs are globally unique.
+
 If a taxonomy is not hierarchical, creating child terms will throw an `InvalidArgumentException`.
 
 ## Assigning Terms To Models
-
-The `HasTaxonomyTerms` trait exposes these helpers:
 
 ```php
 $post->attachTerm($php);
@@ -121,11 +109,23 @@ $post->detachTerms(['php', 'laravel'], taxonomy: 'topics');
 $post->detachAllTerms();
 ```
 
-String-based term resolution requires a taxonomy slug, name, or `Taxonomy` instance:
+String-based term resolution requires a taxonomy:
 
 ```php
 $post->attachTerm('laravel', taxonomy: 'topics');
 $post->attachTerms(['php', 'laravel'], taxonomy: $topics);
+```
+
+### Pivot Data
+
+Attach terms with extra pivot data (`order` and `metadata` columns):
+
+```php
+$post->attachTerm($php, pivot: ['order' => 1, 'metadata' => json_encode(['primary' => true])]);
+$post->attachTerms([$php, $laravel], pivot: ['order' => 5]);
+
+$post->terms->first()->pivot->order;    // 1
+$post->terms->first()->pivot->metadata; // '{"primary":true}'
 ```
 
 ## Checking Attached Terms
@@ -138,30 +138,34 @@ $post->hasAnyTerms(['php', 'go'], taxonomy: 'topics');
 $post->hasAllTerms(['php', 'laravel'], taxonomy: 'topics');
 ```
 
-For these boolean checks, unknown terms resolve to `false`.
+Unknown terms resolve to `false`.
 
 ## Querying Models By Terms
 
 ```php
-Post::query()->whereHasTerm('laravel', taxonomy: 'topics')->get();
+Post::whereHasTerm('laravel', taxonomy: 'topics')->get();
 
-Post::query()->withAnyTerms(['php', 'laravel'], taxonomy: 'topics')->get();
-Post::query()->withAllTerms(['php', 'laravel'], taxonomy: 'topics')->get();
+Post::withAnyTerms(['php', 'laravel'], taxonomy: 'topics')->get();
+Post::withAllTerms(['php', 'laravel'], taxonomy: 'topics')->get();
 
-Post::query()->withoutTerms(['deprecated'], taxonomy: 'statuses')->get();
-Post::query()->withoutAnyTerms()->get();
+Post::withoutTerms(['deprecated'], taxonomy: 'statuses')->get();
+Post::withoutAnyTerms()->get();
+```
 
+### Multi-Taxonomy Filtering
+
+Filter by multiple vocabularies at once — AND between vocabularies, OR within:
+
+```php
 Post::byTaxonomies([
-    'topics' => ['php', 'laravel'],
-    'cities' => ['shanghai'],
+    'topics' => ['php', 'laravel'],   // has php OR laravel
+    'cities' => ['shanghai'],          // AND has shanghai
 ])->get();
 ```
 
-`byTaxonomies` applies AND between vocabularies and OR within each vocabulary's terms.
-
 ## Translations
 
-`Taxonomy` and `Term` use `spatie/laravel-translatable`. The `name` and `description` fields are translatable:
+`name` and `description` are translatable via `spatie/laravel-translatable`:
 
 ```php
 $topics = Taxonomy::query()->create([
@@ -186,17 +190,15 @@ $topics = Taxonomy::query()->create(['name' => 'Topics']);
 
 ## Working With Trees
 
-`Term` uses a nested set internally, so descendant and ancestor operations are query-based rather than recursive PHP traversal.
-
-Tree navigation helpers on `Term`:
+`Term` uses `kalnoy/nestedset` internally, so all tree operations are single-query, not recursive.
 
 ```php
 $laravel->parent;
 $php->children()->get();
-$backend->descendants();
+$backend->descendants()->get();
 
-$laravel->ancestors();
-$laravel->siblings();
+$laravel->ancestors()->get();
+$laravel->siblings()->get();
 
 $backend->isRoot();
 $laravel->isLeaf();
@@ -209,21 +211,44 @@ $php->ancestors()->count();      // 1
 $laravel->ancestors()->count();  // 2
 ```
 
-Build structures for menus, navigation, or selects:
+Build tree structures for menus, navigation, or selects:
 
 ```php
-$tree = $topics->toTree();
-$flatTree = $topics->toFlatTree();
+$tree = $topics->toTree();         // nested with children relations
+$flatTree = $topics->toFlatTree(); // flat list with computed depth attribute
 ```
 
-`toTree()` returns nested terms with populated `children` relations. `toFlatTree()` returns a preordered list with a computed `depth` attribute on each term.
+## Events
 
-## Available Models
+All attach/detach/sync operations dispatch events:
 
-The package ships with:
+| Operation | Event |
+|-----------|-------|
+| `attachTerm` / `attachTerms` | `TermAttached` |
+| `detachTerm` / `detachTerms` / `detachAllTerms` | `TermDetached` |
+| `syncTerms` | `TermsSynced` |
 
-- `Wuwx\LaravelTaxonomy\Models\Taxonomy`
-- `Wuwx\LaravelTaxonomy\Models\Term`
+```php
+use Wuwx\LaravelTaxonomy\Events\TermAttached;
+
+Event::listen(TermAttached::class, function (TermAttached $event) {
+    // $event->model   — the Eloquent model
+    // $event->termIds — array of attached term IDs
+});
+```
+
+`TermsSynced` also includes `$event->changes` with `attached`, `detached`, and `updated` arrays.
+
+## Artisan Commands
+
+```bash
+php artisan taxonomy:list                              # list all taxonomies with term counts
+php artisan taxonomy:tree topics                       # tree view of a taxonomy's terms
+php artisan taxonomy:create-term topics "PHP"           # create a term
+php artisan taxonomy:create-term topics "Laravel" --parent=php  # create a child term
+```
+
+## Configuration
 
 The default config file is `config/laravel-taxonomy.php`:
 
@@ -241,6 +266,8 @@ return [
     ],
 ];
 ```
+
+Both `Taxonomy` and `Term` support Route Model Binding via `slug` by default.
 
 ## Testing
 
