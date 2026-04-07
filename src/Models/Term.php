@@ -3,15 +3,28 @@
 namespace Wuwx\LaravelTaxonomy\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
-use Illuminate\Support\Collection;
+use Kalnoy\Nestedset\NodeTrait;
 use Illuminate\Support\Str;
 
 class Term extends Model
 {
+    use NodeTrait {
+        NodeTrait::parent as protected nestedsetParent;
+        NodeTrait::children as protected nestedsetChildren;
+        NodeTrait::descendants as protected nestedsetDescendants;
+        NodeTrait::ancestors as protected nestedsetAncestors;
+        NodeTrait::siblings as protected nestedsetSiblings;
+        NodeTrait::isRoot as protected nestedsetIsRoot;
+        NodeTrait::isLeaf as protected nestedsetIsLeaf;
+        NodeTrait::isAncestorOf as protected nestedsetIsAncestorOf;
+        NodeTrait::isDescendantOf as protected nestedsetIsDescendantOf;
+    }
+
     protected $fillable = [
         'taxonomy_id',
         'parent_id',
@@ -38,19 +51,56 @@ class Term extends Model
 
     public function parent(): BelongsTo
     {
-        return $this->belongsTo(static::class, 'parent_id');
+        return $this->nestedsetParent();
     }
 
     public function children(): HasMany
     {
-        return $this->hasMany(static::class, 'parent_id')->orderBy('weight')->orderBy('name');
+        return $this->nestedsetChildren()->orderBy('weight')->orderBy('name');
     }
 
-    public function descendants(): Collection
+    public function descendants(): EloquentCollection
     {
-        return $this->children->flatMap(function (self $child): array {
-            return [$child, ...$child->descendants()->all()];
-        });
+        return $this->nestedsetDescendants()->defaultOrder()->get();
+    }
+
+    public function ancestors(): EloquentCollection
+    {
+        return $this->nestedsetAncestors()->defaultOrder('desc')->get();
+    }
+
+    public function siblings(): EloquentCollection
+    {
+        return $this->nestedsetSiblings()->defaultOrder()->get();
+    }
+
+    public function depth(): int
+    {
+        if (! $this->exists || $this->isRoot()) {
+            return 0;
+        }
+
+        return $this->nestedsetAncestors()->count();
+    }
+
+    public function isRoot(): bool
+    {
+        return $this->nestedsetIsRoot();
+    }
+
+    public function isLeaf(): bool
+    {
+        return $this->nestedsetIsLeaf();
+    }
+
+    public function isAncestorOf(Term $term): bool
+    {
+        return $this->nestedsetIsAncestorOf($term);
+    }
+
+    public function isDescendantOf(Term $term): bool
+    {
+        return $this->nestedsetIsDescendantOf($term);
     }
 
     public function scopeSlug(Builder $query, string $slug): Builder
@@ -87,6 +137,18 @@ class Term extends Model
     protected function pivotTable(): string
     {
         return config('laravel-taxonomy.table_names.morph_pivot', 'termables');
+    }
+
+    protected function getScopeAttributes(): array
+    {
+        return ['taxonomy_id'];
+    }
+
+    protected function scopeAttributes(): array
+    {
+        return [
+            'taxonomy_id' => $this->taxonomy_id,
+        ];
     }
 
     protected function resolveTaxonomy(string $taxonomy): Taxonomy

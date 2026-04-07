@@ -50,6 +50,47 @@ class TaxonomyTest extends TestCase
         $this->assertSame(['eloquent', 'laravel', 'php', 'symfony'], Term::query()->forTaxonomy($taxonomy)->orderBy('slug')->pluck('slug')->all());
     }
 
+    public function test_it_provides_tree_navigation_helpers(): void
+    {
+        $taxonomy = Taxonomy::query()->create([
+            'name' => 'Topics',
+            'slug' => 'topics',
+        ]);
+
+        $backend = $taxonomy->createTerm(['name' => 'Backend']);
+        $frontend = $taxonomy->createTerm(['name' => 'Frontend']);
+        $php = $taxonomy->createTerm(['name' => 'PHP'], $backend);
+        $laravel = $taxonomy->createTerm(['name' => 'Laravel'], $php);
+        $symfony = $taxonomy->createTerm(['name' => 'Symfony'], $php);
+        $react = $taxonomy->createTerm(['name' => 'React'], $frontend);
+
+        $this->assertSame(['php', 'backend'], $laravel->ancestors()->pluck('slug')->all());
+        $this->assertSame(['symfony'], $laravel->siblings()->pluck('slug')->all());
+        $this->assertSame(0, $backend->depth());
+        $this->assertSame(1, $php->depth());
+        $this->assertSame(2, $laravel->depth());
+        $this->assertTrue($backend->isRoot());
+        $this->assertFalse($php->isRoot());
+        $this->assertFalse($php->isLeaf());
+        $this->assertTrue($laravel->isLeaf());
+        $this->assertTrue($backend->isAncestorOf($laravel));
+        $this->assertTrue($laravel->isDescendantOf($backend));
+        $this->assertFalse($frontend->isAncestorOf($laravel));
+        $this->assertFalse($react->isDescendantOf($backend));
+
+        $tree = $taxonomy->toTree();
+        $this->assertSame(['backend', 'frontend'], $tree->pluck('slug')->all());
+        $this->assertSame(['php'], $tree->firstWhere('slug', 'backend')?->children->pluck('slug')->all());
+        $this->assertSame(['laravel', 'symfony'], $tree->firstWhere('slug', 'backend')?->children->first()?->children->pluck('slug')->all());
+
+        $flatTree = $taxonomy->toFlatTree();
+        $this->assertSame(
+            ['backend', 'php', 'laravel', 'symfony', 'frontend', 'react'],
+            $flatTree->pluck('slug')->all()
+        );
+        $this->assertSame([0, 1, 2, 2, 0, 1], $flatTree->pluck('depth')->all());
+    }
+
     public function test_it_filters_terms_and_models_through_the_public_api(): void
     {
         $topics = Taxonomy::query()->create([
@@ -209,6 +250,25 @@ class TaxonomyTest extends TestCase
         $this->expectExceptionMessage('This taxonomy does not allow hierarchical terms.');
 
         $taxonomy->createTerm(['name' => 'Laravel'], $parent);
+    }
+
+    public function test_it_rejects_parents_from_other_taxonomies(): void
+    {
+        $topics = Taxonomy::query()->create([
+            'name' => 'Topics',
+            'slug' => 'topics',
+        ]);
+        $skills = Taxonomy::query()->create([
+            'name' => 'Skills',
+            'slug' => 'skills',
+        ]);
+
+        $parent = $topics->createTerm(['name' => 'PHP']);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('The parent term does not belong to this taxonomy.');
+
+        $skills->createTerm(['name' => 'Docker'], $parent);
     }
 
     public function test_it_requires_a_taxonomy_when_resolving_a_term_by_string(): void

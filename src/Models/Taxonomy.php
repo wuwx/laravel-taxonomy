@@ -42,11 +42,20 @@ class Taxonomy extends Model
             throw new \InvalidArgumentException('This taxonomy does not allow hierarchical terms.');
         }
 
+        if ($parent !== null && (int) $parent->taxonomy_id !== (int) $this->getKey()) {
+            throw new \InvalidArgumentException('The parent term does not belong to this taxonomy.');
+        }
+
         $attributes['slug'] ??= Str::slug($attributes['name'] ?? '');
-        $attributes['parent_id'] = $parent?->getKey();
 
         /** @var Term $term */
-        $term = $this->terms()->create($attributes);
+        $term = $this->terms()->make($attributes);
+
+        if ($parent !== null) {
+            $term->appendToNode($parent);
+        }
+
+        $term->save();
 
         return $term;
     }
@@ -70,6 +79,45 @@ class Taxonomy extends Model
             ->orderBy('weight')
             ->orderBy('name')
             ->get();
+
+        return $terms;
+    }
+
+    /**
+     * @return Collection<int, Term>
+     */
+    public function toTree(): Collection
+    {
+        /** @var Collection<int, Term> $terms */
+        $terms = $this->terms()
+            ->defaultOrder()
+            ->get()
+            ->toTree();
+
+        return $terms;
+    }
+
+    /**
+     * @return Collection<int, Term>
+     */
+    public function toFlatTree(): Collection
+    {
+        /** @var Collection<int, Term> $terms */
+        $terms = $this->terms()
+            ->defaultOrder()
+            ->get()
+            ->toFlatTree();
+
+        $depths = [];
+
+        $terms->each(function (Term $term) use (&$depths): void {
+            $depth = $term->parent_id === null
+                ? 0
+                : ($depths[$term->parent_id] ?? -1) + 1;
+
+            $term->setAttribute('depth', $depth);
+            $depths[$term->getKey()] = $depth;
+        });
 
         return $terms;
     }
