@@ -12,6 +12,8 @@ return new class () extends Migration {
                 ->constrained(config('laravel-taxonomy.table_names.terms', 'taxonomy_terms'))
                 ->cascadeOnDelete();
             $table->morphs('model');
+            $table->integer('order')->default(0);
+            $table->json('metadata')->nullable();
             $table->timestamps();
 
             $table->primary(['term_id', 'model_type', 'model_id'], 'termables_primary');

@@ -21,7 +21,7 @@ trait HasTaxonomyTerms
             $this->pivotTable(),
             'model_id',
             'term_id'
-        )->withTimestamps();
+        )->withPivot(['order', 'metadata'])->withTimestamps();
     }
 
     public function termsIn(string|Taxonomy $taxonomy): MorphToMany
@@ -29,22 +29,28 @@ trait HasTaxonomyTerms
         return $this->terms()->where('taxonomy_id', $this->resolveTaxonomy($taxonomy)->getKey());
     }
 
-    public function attachTerm(Term|int|string $term, string|Taxonomy|null $taxonomy = null): static
+    public function attachTerm(Term|int|string $term, string|Taxonomy|null $taxonomy = null, array $pivot = []): static
     {
-        $ids = [$this->resolveTermId($term, $taxonomy)];
+        $id = $this->resolveTermId($term, $taxonomy);
 
-        $this->terms()->syncWithoutDetaching($ids);
+        $this->terms()->syncWithoutDetaching(
+            $pivot !== [] ? [$id => $pivot] : [$id]
+        );
 
-        TermAttached::dispatch($this, $ids);
+        TermAttached::dispatch($this, [$id]);
 
         return $this;
     }
 
-    public function attachTerms(iterable $terms, string|Taxonomy|null $taxonomy = null): static
+    public function attachTerms(iterable $terms, string|Taxonomy|null $taxonomy = null, array $pivot = []): static
     {
         $ids = $this->resolveTermIds($terms, $taxonomy);
 
-        $this->terms()->syncWithoutDetaching($ids);
+        $syncData = $pivot !== []
+            ? array_combine($ids, array_fill(0, count($ids), $pivot))
+            : $ids;
+
+        $this->terms()->syncWithoutDetaching($syncData);
 
         TermAttached::dispatch($this, $ids);
 

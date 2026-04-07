@@ -435,6 +435,26 @@ class TaxonomyTest extends TestCase
         });
     }
 
+    public function test_it_attaches_term_with_pivot_data(): void
+    {
+        $taxonomy = Taxonomy::query()->create(['name' => 'Topics']);
+        $php = $taxonomy->createTerm(['name' => 'PHP']);
+        $laravel = $taxonomy->createTerm(['name' => 'Laravel']);
+        $post = Post::query()->create(['title' => 'Test']);
+
+        $post->attachTerm($php, pivot: ['order' => 1, 'metadata' => json_encode(['primary' => true])]);
+
+        $pivot = $post->terms()->where('term_id', $php->getKey())->first()->pivot;
+        $this->assertSame(1, $pivot->order);
+        $this->assertSame('{"primary":true}', $pivot->metadata);
+
+        $post->attachTerms([$php, $laravel], pivot: ['order' => 5]);
+
+        $pivots = $post->terms()->orderBy('term_id')->get();
+        $this->assertSame(5, $pivots[0]->pivot->order); // syncWithoutDetaching updates existing pivot data
+        $this->assertSame(5, $pivots[1]->pivot->order);
+    }
+
     public function test_it_rejects_unknown_taxonomies_in_term_queries(): void
     {
         $this->expectException(InvalidArgumentException::class);
