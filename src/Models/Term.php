@@ -9,11 +9,15 @@ use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Kalnoy\Nestedset\NodeTrait;
 use Spatie\Sluggable\HasSlug;
 use Spatie\Sluggable\SlugOptions;
+use Spatie\Translatable\HasTranslations;
 
 class Term extends Model
 {
     use HasSlug;
+    use HasTranslations;
     use NodeTrait;
+
+    public array $translatable = ['name', 'description'];
 
     protected $fillable = [
         'taxonomy_id',
@@ -91,7 +95,7 @@ class Term extends Model
         /** @var Taxonomy|null $resolved */
         $resolved = $this->taxonomyModel()::query()
             ->where('slug', $taxonomy)
-            ->orWhere('name', $taxonomy)
+            ->orWhere('name->'.app()->getLocale(), $taxonomy)
             ->first();
 
         if ($resolved === null) {

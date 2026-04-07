@@ -9,9 +9,9 @@ return new class () extends Migration {
     {
         Schema::create(config('laravel-taxonomy.table_names.taxonomies', 'taxonomies'), function (Blueprint $table): void {
             $table->id();
-            $table->string('name');
+            $table->json('name');
             $table->string('slug')->unique();
-            $table->text('description')->nullable();
+            $table->json('description')->nullable();
             $table->boolean('is_hierarchical')->default(true);
             $table->timestamps();
         });

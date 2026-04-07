@@ -324,6 +324,53 @@ class TaxonomyTest extends TestCase
         $this->assertNotContains('Post 3', $results);
     }
 
+    public function test_it_supports_translatable_name_and_description(): void
+    {
+        $taxonomy = Taxonomy::query()->create([
+            'name' => ['en' => 'Topics', 'zh' => '主题'],
+            'description' => ['en' => 'Blog topics', 'zh' => '博客主题'],
+        ]);
+
+        app()->setLocale('en');
+        $this->assertSame('Topics', $taxonomy->name);
+        $this->assertSame('Blog topics', $taxonomy->description);
+
+        app()->setLocale('zh');
+        $this->assertSame('主题', $taxonomy->name);
+        $this->assertSame('博客主题', $taxonomy->description);
+
+        $this->assertSame('topics', $taxonomy->slug);
+
+        $php = $taxonomy->createTerm([
+            'name' => ['en' => 'PHP', 'zh' => 'PHP 编程'],
+            'description' => ['en' => 'PHP language', 'zh' => 'PHP 编程语言'],
+        ]);
+
+        app()->setLocale('en');
+        $this->assertSame('PHP', $php->name);
+
+        app()->setLocale('zh');
+        $this->assertSame('PHP 编程', $php->name);
+        $this->assertSame('PHP 编程语言', $php->description);
+    }
+
+    public function test_it_resolves_taxonomy_by_translated_name(): void
+    {
+        Taxonomy::query()->create([
+            'name' => ['en' => 'Topics', 'zh' => '主题'],
+        ]);
+
+        $post = Post::query()->create(['title' => 'Test']);
+
+        app()->setLocale('en');
+        $taxonomy = Taxonomy::query()->where('name->en', 'Topics')->first();
+        $this->assertNotNull($taxonomy);
+
+        app()->setLocale('zh');
+        $taxonomy = Taxonomy::query()->where('name->zh', '主题')->first();
+        $this->assertNotNull($taxonomy);
+    }
+
     public function test_it_rejects_unknown_taxonomies_in_term_queries(): void
     {
         $this->expectException(InvalidArgumentException::class);

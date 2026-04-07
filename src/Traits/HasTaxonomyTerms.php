@@ -220,7 +220,7 @@ trait HasTaxonomyTerms
         /** @var Taxonomy|null $resolved */
         $resolved = $this->taxonomyModel()::query()
             ->where('slug', $taxonomy)
-            ->orWhere('name', $taxonomy)
+            ->orWhere('name->'.app()->getLocale(), $taxonomy)
             ->first();
 
         if ($resolved === null) {

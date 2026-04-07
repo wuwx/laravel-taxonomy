@@ -16,9 +16,9 @@ return new class () extends Migration {
                 ->nullable()
                 ->constrained(config('laravel-taxonomy.table_names.terms', 'taxonomy_terms'))
                 ->nullOnDelete();
-            $table->string('name');
+            $table->json('name');
             $table->string('slug');
-            $table->text('description')->nullable();
+            $table->json('description')->nullable();
             $table->integer('weight')->default(0);
             $table->json('metadata')->nullable();
             $table->unsignedInteger('_lft')->default(0);

@@ -8,10 +8,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Sluggable\HasSlug;
 use Spatie\Sluggable\SlugOptions;
+use Spatie\Translatable\HasTranslations;
 
 class Taxonomy extends Model
 {
     use HasSlug;
+    use HasTranslations;
+
+    public array $translatable = ['name', 'description'];
 
     protected $fillable = [
         'name',
@@ -78,7 +82,7 @@ class Taxonomy extends Model
         $terms = $this->terms()
             ->whereNull('parent_id')
             ->orderBy('weight')
-            ->orderBy('name')
+            ->orderBy('name->'.app()->getLocale())
             ->get();
 
         return $terms;

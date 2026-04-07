@@ -150,6 +150,38 @@ Post::query()->withAllTerms(['php', 'laravel'], taxonomy: 'topics')->get();
 
 Post::query()->withoutTerms(['deprecated'], taxonomy: 'statuses')->get();
 Post::query()->withoutAnyTerms()->get();
+
+Post::byTaxonomies([
+    'topics' => ['php', 'laravel'],
+    'cities' => ['shanghai'],
+])->get();
+```
+
+`byTaxonomies` applies AND between vocabularies and OR within each vocabulary's terms.
+
+## Translations
+
+`Taxonomy` and `Term` use `spatie/laravel-translatable`. The `name` and `description` fields are translatable:
+
+```php
+$topics = Taxonomy::query()->create([
+    'name' => ['en' => 'Topics', 'zh' => '主题'],
+    'description' => ['en' => 'Blog topics', 'zh' => '博客主题'],
+]);
+
+$php = $topics->createTerm([
+    'name' => ['en' => 'PHP', 'zh' => 'PHP 编程'],
+]);
+
+app()->setLocale('zh');
+$topics->name; // '主题'
+$php->name;    // 'PHP 编程'
+```
+
+Single-language usage works as before — just pass a plain string:
+
+```php
+$topics = Taxonomy::query()->create(['name' => 'Topics']);
 ```
 
 ## Working With Trees
