@@ -174,6 +174,28 @@ trait HasTaxonomyTerms
         return $query->doesntHave('terms');
     }
 
+    /**
+     * @param  array<string, array<int, Term|int|string>>  $taxonomyTermMap
+     */
+    public function scopeByTaxonomies(Builder $query, array $taxonomyTermMap): Builder
+    {
+        foreach ($taxonomyTermMap as $taxonomy => $terms) {
+            $ids = $this->resolveTermIds($terms, $taxonomy);
+
+            if ($ids !== []) {
+                $query->whereHas(
+                    'terms',
+                    fn (Builder $q): Builder => $q->whereIn(
+                        $q->getModel()->qualifyColumn($q->getModel()->getKeyName()),
+                        $ids
+                    )
+                );
+            }
+        }
+
+        return $query;
+    }
+
     protected function termModel(): string
     {
         return config('laravel-taxonomy.models.term', Term::class);

@@ -286,6 +286,44 @@ class TaxonomyTest extends TestCase
         $post->attachTerm('php');
     }
 
+    public function test_it_filters_models_by_multiple_taxonomies(): void
+    {
+        $topics = Taxonomy::query()->create(['name' => 'Topics']);
+        $cities = Taxonomy::query()->create(['name' => 'Cities']);
+
+        $php = $topics->createTerm(['name' => 'PHP']);
+        $laravel = $topics->createTerm(['name' => 'Laravel']);
+        $shanghai = $cities->createTerm(['name' => 'Shanghai']);
+        $beijing = $cities->createTerm(['name' => 'Beijing']);
+
+        $post1 = Post::query()->create(['title' => 'Post 1']);
+        $post2 = Post::query()->create(['title' => 'Post 2']);
+        $post3 = Post::query()->create(['title' => 'Post 3']);
+
+        $post1->attachTerms([$php, $laravel])->attachTerm($shanghai);
+        $post2->attachTerms([$php])->attachTerm($beijing);
+        $post3->attachTerm($laravel)->attachTerm($shanghai);
+
+        // AND between taxonomies, OR within a taxonomy's terms
+        $results = Post::byTaxonomies([
+            'topics' => ['php', 'laravel'],
+            'cities' => ['shanghai'],
+        ])->pluck('title')->all();
+
+        $this->assertContains('Post 1', $results);
+        $this->assertContains('Post 3', $results);
+        $this->assertNotContains('Post 2', $results); // has php but not in shanghai
+
+        // Single taxonomy works too
+        $results = Post::byTaxonomies([
+            'topics' => ['php'],
+        ])->pluck('title')->all();
+
+        $this->assertContains('Post 1', $results);
+        $this->assertContains('Post 2', $results);
+        $this->assertNotContains('Post 3', $results);
+    }
+
     public function test_it_rejects_unknown_taxonomies_in_term_queries(): void
     {
         $this->expectException(InvalidArgumentException::class);

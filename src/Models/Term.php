@@ -58,6 +58,11 @@ class Term extends Model
         return $this->morphedByMany($modelClass, 'model', $this->pivotTable(), 'term_id', 'model_id');
     }
 
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
     public function getSlugOptions(): SlugOptions
     {
         return SlugOptions::create()
