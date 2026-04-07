@@ -455,6 +455,59 @@ class TaxonomyTest extends TestCase
         $this->assertSame(5, $pivots[1]->pivot->order);
     }
 
+    public function test_artisan_taxonomy_list_command(): void
+    {
+        $taxonomy = Taxonomy::query()->create(['name' => 'Topics']);
+        $taxonomy->createTerm(['name' => 'PHP']);
+        $taxonomy->createTerm(['name' => 'Laravel']);
+
+        $this->artisan('taxonomy:list')
+            ->expectsTable(
+                ['ID', 'Name', 'Slug', 'Hierarchical', 'Terms'],
+                [[(string) $taxonomy->getKey(), 'Topics', 'topics', 'Yes', '2']]
+            )
+            ->assertExitCode(0);
+    }
+
+    public function test_artisan_taxonomy_tree_command(): void
+    {
+        $taxonomy = Taxonomy::query()->create(['name' => 'Topics']);
+        $backend = $taxonomy->createTerm(['name' => 'Backend']);
+        $taxonomy->createTerm(['name' => 'PHP'], parent: $backend);
+
+        $this->artisan('taxonomy:tree', ['slug' => 'topics'])
+            ->expectsOutputToContain('Backend')
+            ->expectsOutputToContain('PHP')
+            ->assertExitCode(0);
+
+        $this->artisan('taxonomy:tree', ['slug' => 'missing'])
+            ->expectsOutputToContain('not found')
+            ->assertExitCode(1);
+    }
+
+    public function test_artisan_taxonomy_create_term_command(): void
+    {
+        Taxonomy::query()->create(['name' => 'Topics']);
+
+        $this->artisan('taxonomy:create-term', ['taxonomy' => 'topics', 'name' => 'PHP'])
+            ->expectsOutputToContain('Term [PHP] created')
+            ->assertExitCode(0);
+
+        $this->assertSame(1, Term::query()->where('slug', 'php')->count());
+
+        $this->artisan('taxonomy:create-term', [
+            'taxonomy' => 'topics',
+            'name' => 'Laravel',
+            '--parent' => 'php',
+        ])
+            ->expectsOutputToContain('Term [Laravel] created')
+            ->assertExitCode(0);
+
+        $laravel = Term::query()->where('slug', 'laravel')->first();
+        $this->assertNotNull($laravel);
+        $this->assertNotNull($laravel->parent_id);
+    }
+
     public function test_it_rejects_unknown_taxonomies_in_term_queries(): void
     {
         $this->expectException(InvalidArgumentException::class);
