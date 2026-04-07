@@ -17,7 +17,7 @@
         "spatie/laravel-package-tools": "^1.93",
         "kalnoy/nestedset": "^6.0",
         "spatie/laravel-sluggable": "^3.8",
-        "spatie/laravel-translatable": "^6.13"
+        "spatie/laravel-translatable": "^6.11"
     },
     "require-dev": {
         "laravel/pint": "^1.24",
